@@ -1,0 +1,54 @@
+===========================================================
+Agent Learning Guide: Excel → SQL Mapping
+===========================================================
+
+1. Target Table & Target Column
+   - Excel Columns: LogicalTableName, LogicalColumnName, PhysicalTableName, PhysicalColumnName
+   - Rule: Always use PhysicalTableName + PhysicalColumnName as the SQL target.
+   - Example: HS_LN_CNSMR_TXN.CTR_NBR
+
+2. Source Table & Source Column
+   - Excel Columns: DirectSourceColumns, SourceCode, Logic
+   - Rule: If DirectSourceColumns is filled, use it. If blank, parse Logic for source references.
+   - Example: STA_HS_IN_FNC_EVT.CONTRACT_NBR
+
+3. Mapping Logic
+   - Excel Columns: Logic, DirectSourceDescription
+   - Rule: Convert Logic into SQL expressions (joins, concatenations, filters).
+   - Example: Concatenate HS_SRC_CD || '|' || HS_SRC_KEY
+
+4. Data Type & Constraints
+   - Excel Columns: DataType, Length, Precision, Null, Key
+   - Rule: Use these for CREATE TABLE or schema validation.
+   - Example: NUMBER(20,0) NOT NULL PRIMARY KEY
+
+5. Business Context
+   - Excel Column: Description
+   - Rule: Include as SQL comments for clarity.
+   - Example: -- Flag indicating whether the loan is currently active
+
+===========================================================
+Example Conversion
+===========================================================
+
+Excel Row:
+- Target: HS_LN_CNSMR_TXN.CTR_NBR
+- Source: STA_HS_IN_FNC_EVT.CONTRACT_NBR
+- Logic: Map CONTRACT_NBR → CTR_NBR where STATE_CODE='28'
+
+Generated SQL:
+-- Unique contract number associated with the housing loan
+INSERT INTO HS_LN_CNSMR_TXN (CTR_NBR)
+SELECT CONTRACT_NBR
+FROM STA_HS_IN_FNC_EVT
+WHERE STATE_CODE = '28';
+
+===========================================================
+Agent Workflow Summary
+===========================================================
+1. Read Excel row → Extract PhysicalTableName + PhysicalColumnName
+2. Check source mapping → Use DirectSourceColumns or Logic
+3. Apply transformation → Convert Logic into SQL
+4. Generate SQL → Build SELECT/INSERT mapping query
+5. Annotate → Add Description as comments
+===========================================================
