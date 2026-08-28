@@ -244,6 +244,32 @@ def to_excel(cases: pd.DataFrame) -> bytes:
     return output.getvalue()
 
 
+def answer_question(question: str, cases: pd.DataFrame) -> str:
+    """Answer common UAT questions using the generated test-case data."""
+    text = question.strip().lower()
+    if not text:
+        return "Enter a question about the generated UAT queries."
+    if "how many" in text or "count" in text:
+        return f"There are {len(cases)} generated UAT/SIT queries."
+    if "duplicate" in text:
+        names = cases[cases["Test Case Name"].str.contains("duplicate", case=False)]["Test Case Name"].tolist()
+        return "Duplicate checks: " + "; ".join(names) + "."
+    if "category" in text or "categories" in text or "cover" in text:
+        return "The queries cover mapping, reconciliation, duplicates, nulls, joins, lookups, business rules, derived flags, filters, and referential integrity."
+
+    case_match = re.search(r"tc[- ]?(\d{1,4})", text)
+    if case_match:
+        case_id = f"TC-{int(case_match.group(1)):04d}"
+        matches = cases[cases["Test Case ID"] == case_id]
+        if matches.empty:
+            return f"I could not find {case_id}. Available IDs are TC-0001 through TC-{len(cases):04d}."
+        case = matches.iloc[0]
+        if "expected" in text or "result" in text:
+            return f"{case_id} expected result: {case['Expected Result']}"
+        return f"{case_id}: {case['Test Case Name']}\n\nObjective: {case['Objective']}\n\nSQL:\n{case['SQL Query']}"
+    return "Try: 'How many queries?', 'Show TC-0007', 'What is the expected result for TC-0011?', or 'Which checks cover duplicates?'"
+
+
 st.set_page_config(page_title="SQL Mapping Agent", page_icon="SQL", layout="wide")
 st.title("Functional Specification to Oracle SQL")
 st.caption("Upload an Excel functional specification to generate 20 executable UAT queries.")
@@ -254,6 +280,7 @@ uploaded = st.file_uploader("Functional specification (.xlsx)", type=["xlsx"])
 if uploaded:
     try:
         cases = generate_cases(uploaded.getvalue())
+        st.session_state["generated_cases"] = cases
         st.success(f"Generated {len(cases)} test case(s).")
         st.dataframe(cases, use_container_width=True, hide_index=True)
         st.download_button(
@@ -267,3 +294,14 @@ if uploaded:
         st.error(f"Could not process the workbook: {error}")
 else:
     st.info("Choose an .xlsx file containing the Mapping Columns worksheet to begin.")
+
+cases = st.session_state.get("generated_cases")
+if cases is not None:
+    st.subheader("Ask about your UAT queries")
+    question = st.text_input(
+        "Question",
+        placeholder="e.g. What is the expected result for TC-0011?",
+        label_visibility="collapsed",
+    )
+    if question:
+        st.markdown(answer_question(question, cases))
