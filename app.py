@@ -251,9 +251,25 @@ def answer_question(question: str, cases: pd.DataFrame) -> str:
         return "Enter a question about the generated UAT queries."
     if "how many" in text or "count" in text:
         return f"There are {len(cases)} generated UAT/SIT queries."
-    if "duplicate" in text:
-        names = cases[cases["Test Case Name"].str.contains("duplicate", case=False)]["Test Case Name"].tolist()
-        return "Duplicate checks: " + "; ".join(names) + "."
+    topic_terms = {
+        "duplicate": "duplicate",
+        "null": "null",
+        "join": "join",
+        "lookup": "lookup",
+        "reconcil": "reconciliation",
+        "mapping": "mapping",
+        "insurance": "insurance",
+        "fraud": "fraud",
+        "restructur": "restructuring",
+        "office": "office",
+        "referential": "reference integrity",
+    }
+    for term, name_term in topic_terms.items():
+        if term in text and ("query" in text or "sql" in text or "check" in text or "show" in text or "generate" in text):
+            matches = cases[cases["Test Case Name"].str.contains(name_term, case=False)]
+            if not matches.empty:
+                result = [f"{row['Test Case ID']}: {row['Test Case Name']}\n\n```sql\n{row['SQL Query']}\n```" for _, row in matches.iterrows()]
+                return "\n\n".join(result)
     if "category" in text or "categories" in text or "cover" in text:
         return "The queries cover mapping, reconciliation, duplicates, nulls, joins, lookups, business rules, derived flags, filters, and referential integrity."
 
@@ -267,7 +283,7 @@ def answer_question(question: str, cases: pd.DataFrame) -> str:
         if "expected" in text or "result" in text:
             return f"{case_id} expected result: {case['Expected Result']}"
         return f"{case_id}: {case['Test Case Name']}\n\nObjective: {case['Objective']}\n\nSQL:\n{case['SQL Query']}"
-    return "Try: 'How many queries?', 'Show TC-0007', 'What is the expected result for TC-0011?', or 'Which checks cover duplicates?'"
+    return "Try: 'How many queries?', 'Generate the duplicate SQL query', 'Show TC-0007', or 'What is the expected result for TC-0011?'"
 
 
 st.set_page_config(page_title="SQL Mapping Agent", page_icon="SQL", layout="wide")
