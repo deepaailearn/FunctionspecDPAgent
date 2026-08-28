@@ -208,7 +208,7 @@ def generate_cases(workbook: bytes) -> pd.DataFrame:
 
     query_specs = [
         ("Source-to-target mapping", f"SELECT\n{source_select}\n{base_source};", "Every mapped source expression returns the expected target-compatible value."),
-        ("Source and target count reconciliation", f"SELECT (SELECT COUNT(*) FROM STA_CDS_SS_FIN_IN_AR_LOAN_V {source} JOIN STA_CDS_SS_THALER_AR_CL_ZID02_V {thaler} ON {source}.DEAL_ID_SRC = {thaler}.NUMCPT WHERE {SOURCE_FILTER}) AS source_count, (SELECT COUNT(*) {target_join}) AS target_count FROM dual;", "Source and target counts reconcile according to the agreed load policy."),
+        ("Source and target count reconciliation", f"SELECT\n    (\n        SELECT COUNT(*)\n        FROM STA_CDS_SS_FIN_IN_AR_LOAN_V {source}\n        JOIN STA_CDS_SS_THALER_AR_CL_ZID02_V {thaler}\n            ON {source}.DEAL_ID_SRC = {thaler}.NUMCPT\n        WHERE {SOURCE_FILTER}\n    ) AS source_count,\n    (\n        SELECT COUNT(*)\n        {target_join}\n    ) AS target_count\nFROM dual;", "Source and target counts reconcile according to the agreed load policy."),
         ("Duplicate source deal check", f"SELECT {source}.DEAL_ID_SRC, COUNT(*) AS duplicate_count {base_source} GROUP BY {source}.DEAL_ID_SRC HAVING COUNT(*) > 1;", "No duplicate source deal IDs are returned."),
         ("Duplicate target key check", f"SELECT {target}.{primary_key}, COUNT(*) AS duplicate_count {target_join} GROUP BY {target}.{primary_key} HAVING COUNT(*) > 1;", "No duplicate target primary keys are returned."),
         ("Required target columns null check", f"SELECT COUNT(*) AS invalid_rows {target_join} WHERE {target}.{primary_key} IS NULL OR {target}.{agreement_id} IS NULL;", "The invalid row count is zero for required identifiers."),
@@ -309,7 +309,7 @@ def answer_question(question: str, cases: pd.DataFrame, workbook: bytes | None =
         case = matches.iloc[0]
         if "expected" in text or "result" in text:
             return f"{case_id} expected result: {case['Expected Result']}"
-        return f"{case_id}: {case['Test Case Name']}\n\nObjective: {case['Objective']}\n\nSQL:\n{case['SQL Query']}"
+        return f"{case_id}: {case['Test Case Name']}\n\nObjective: {case['Objective']}\n\nSQL:\n\n```sql\n{case['SQL Query']}\n```"
     if workbook is not None and any(term in text for term in ("new query", "generate", "select", "sql for", "query for")):
         runtime_sql = generate_runtime_sql(question, workbook)
         if runtime_sql:
