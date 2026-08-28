@@ -314,10 +314,23 @@ else:
 cases = st.session_state.get("generated_cases")
 if cases is not None:
     st.subheader("Ask about your UAT queries")
-    question = st.text_input(
-        "Question",
-        placeholder="e.g. What is the expected result for TC-0011?",
-        label_visibility="collapsed",
-    )
-    if question:
-        st.markdown(answer_question(question, cases))
+    if "conversation" not in st.session_state:
+        st.session_state["conversation"] = []
+    with st.form("uat_question_form", clear_on_submit=True):
+        question = st.text_input(
+            "Question",
+            placeholder="e.g. Generate the duplicate SQL query",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Ask")
+    if submitted and question.strip():
+        st.session_state["conversation"].append(
+            {"question": question.strip(), "answer": answer_question(question, cases)}
+        )
+    if st.session_state["conversation"]:
+        for item in reversed(st.session_state["conversation"]):
+            st.markdown(f"**You:** {item['question']}")
+            st.markdown(item["answer"])
+        if st.button("Clear conversation"):
+            st.session_state["conversation"] = []
+            st.rerun()

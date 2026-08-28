@@ -15,4 +15,4 @@ The workbook should contain a `Mapping Columns` worksheet and, when joins or fil
 
 The generated cases cover source-to-target mapping, joins, lookups, duplicates, nulls, business rules, count reconciliation, derived flags, data quality, and referential integrity. Queries are read-only Oracle SQL and use the rules in `Customer_Loan_SQL_Generation_Agent_Prompt.md`.
 
-After uploading a workbook, use the built-in question field to ask about the generated cases or request a particular SQL query. Examples include `How many queries?`, `Show TC-0007`, `Generate the duplicate SQL query`, `Generate the null check SQL`, and `What is the expected result for TC-0011?`.
+After uploading a workbook, use the built-in question field to ask multiple questions about the generated cases. Each question and answer remains visible until you select **Clear conversation**. You can request a particular SQL query with questions such as `How many queries?`, `Show TC-0007`, `Generate the duplicate SQL query`, `Generate the null check SQL`, and `What is the expected result for TC-0011?`.
