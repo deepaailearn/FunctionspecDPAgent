@@ -244,7 +244,34 @@ def to_excel(cases: pd.DataFrame) -> bytes:
     return output.getvalue()
 
 
-def answer_question(question: str, cases: pd.DataFrame) -> str:
+def generate_runtime_sql(question: str, workbook: bytes) -> str | None:
+    """Build a new mapped SELECT for target columns named in a runtime question."""
+    sheets = pd.read_excel(io.BytesIO(workbook), sheet_name=None)
+    normalized = {name.lower().strip(): normalize_columns(frame) for name, frame in sheets.items()}
+    columns = normalized.get("mapping columns")
+    tables = normalized.get("mapping tables", pd.DataFrame())
+    if columns is None or columns.empty:
+        return None
+
+    question_lower = question.lower()
+    all_columns_requested = any(
+        phrase in question_lower for phrase in ("all columns", "all mapped", "complete mapping")
+    )
+    matches = []
+    for _, row in columns.iterrows():
+        physical = value(row, "PhysicalColumnName", "Physical Column Name")
+        logical = value(row, "LogicalColumnName", "Logical Column Name")
+        if all_columns_requested or any(name and name.lower() in question_lower for name in (physical, logical)):
+            matches.append(row)
+    if not matches:
+        return None
+
+    selected = pd.DataFrame(matches, columns=columns.columns)
+    target_table, _, sql = build_sql(selected, tables)
+    return f"-- Runtime query for {target_table}\n{sql}"
+
+
+def answer_question(question: str, cases: pd.DataFrame, workbook: bytes | None = None) -> str:
     """Answer common UAT questions using the generated test-case data."""
     text = question.strip().lower()
     if not text:
@@ -283,6 +310,10 @@ def answer_question(question: str, cases: pd.DataFrame) -> str:
         if "expected" in text or "result" in text:
             return f"{case_id} expected result: {case['Expected Result']}"
         return f"{case_id}: {case['Test Case Name']}\n\nObjective: {case['Objective']}\n\nSQL:\n{case['SQL Query']}"
+    if workbook is not None and any(term in text for term in ("new query", "generate", "select", "sql for", "query for")):
+        runtime_sql = generate_runtime_sql(question, workbook)
+        if runtime_sql:
+            return f"Generated from the uploaded mapping:\n\n```sql\n{runtime_sql}\n```"
     return "Try: 'How many queries?', 'Generate the duplicate SQL query', 'Show TC-0007', or 'What is the expected result for TC-0011?'"
 
 
@@ -297,6 +328,7 @@ if uploaded:
     try:
         cases = generate_cases(uploaded.getvalue())
         st.session_state["generated_cases"] = cases
+        st.session_state["uploaded_workbook"] = uploaded.getvalue()
         st.success(f"Generated {len(cases)} test case(s).")
         st.dataframe(cases, use_container_width=True, hide_index=True)
         st.download_button(
@@ -325,7 +357,12 @@ if cases is not None:
         submitted = st.form_submit_button("Ask")
     if submitted and question.strip():
         st.session_state["conversation"].append(
-            {"question": question.strip(), "answer": answer_question(question, cases)}
+            {
+                "question": question.strip(),
+                "answer": answer_question(
+                    question, cases, st.session_state.get("uploaded_workbook")
+                ),
+            }
         )
     if st.session_state["conversation"]:
         for item in reversed(st.session_state["conversation"]):
